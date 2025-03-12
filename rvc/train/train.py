@@ -740,10 +740,10 @@ def train_and_evaluate(
                         torch.stack(list(avg_losses["grad_g_clipped_avg"]))
                     ),
                     "grad_avg/norm_d_trimmed": torch.trimean(
-                        torch.stack(list(avg_losses["grad_d_avg_trimmed"]))
+                        torch.stack(list(avg_losses["grad_d_avg_trimmed"])), proportiontocut=0.25
                     ),
                     "grad_avg/norm_g_trimmed": torch.trimean(
-                        torch.stack(list(avg_losses["grad_g_avg_trimmed"]))
+                        torch.stack(list(avg_losses["grad_g_avg_trimmed"])), proportiontocut=0.25
                     ),
                     "loss_avg/d/total": torch.mean(
                         torch.stack(list(avg_losses["disc_loss_avg"]))
