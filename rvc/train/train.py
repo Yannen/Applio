@@ -98,13 +98,17 @@ lowest_value = {"step": 0, "value": float("inf"), "epoch": 0}
 training_file_path = os.path.join(experiment_dir, "training_data.json")
 
 avg_losses = {
-    "grad_d_50": deque(maxlen=50),
-    "grad_g_50": deque(maxlen=50),
-    "disc_loss_50": deque(maxlen=50),
-    "fm_loss_50": deque(maxlen=50),
-    "kl_loss_50": deque(maxlen=50),
-    "mel_loss_50": deque(maxlen=50),
-    "gen_loss_50": deque(maxlen=50),
+    "grad_d_avg": deque(maxlen=93),
+    "grad_d_avg_trimmed": deque(maxlen=93),
+    "grad_d_clipped_avg": deque(maxlen=93),
+    "grad_g_avg": deque(maxlen=93),
+    "grad_g_avg_trimmed": deque(maxlen=93),
+    "grad_g_clipped_avg": deque(maxlen=93),
+    "disc_loss_avg": deque(maxlen=93),
+    "fm_loss_avg": deque(maxlen=93),
+    "kl_loss_avg": deque(maxlen=93),
+    "mel_loss_avg": deque(maxlen=93),
+    "gen_loss_avg": deque(maxlen=93),
 }
 
 import logging
@@ -679,6 +683,7 @@ def train_and_evaluate(
             grad_norm_d = torch.nn.utils.clip_grad_norm_(
                 net_d.parameters(), max_norm=100.0
             )
+            grad_norm_d_clipped = torch.nn.utils.get_total_norm(net_d.parameters())
             optim_d.step()
 
             # Generator backward and update
@@ -701,42 +706,59 @@ def train_and_evaluate(
             grad_norm_g = torch.nn.utils.clip_grad_norm_(
                 net_g.parameters(), max_norm=500.0
             )
+            grad_norm_g_clipped = torch.nn.utils.get_total_norm(net_g.parameters())
             optim_g.step()
 
             global_step += 1
 
             # queue for rolling losses over 50 steps
-            avg_losses["grad_d_50"].append(grad_norm_d.detach())
-            avg_losses["grad_g_50"].append(grad_norm_g.detach())
-            avg_losses["disc_loss_50"].append(loss_disc.detach())
-            avg_losses["fm_loss_50"].append(loss_fm.detach())
-            avg_losses["kl_loss_50"].append(loss_kl.detach())
-            avg_losses["mel_loss_50"].append(loss_mel.detach())
-            avg_losses["gen_loss_50"].append(loss_gen_all.detach())
+            avg_losses["grad_d_avg"].append(grad_norm_d.detach())
+            avg_losses["grad_g_avg"].append(grad_norm_g.detach())
+            avg_losses["grad_d_avg_trimmed"].append(grad_norm_d.detach())
+            avg_losses["grad_g_avg_trimmed"].append(grad_norm_g.detach())
+            avg_losses["grad_d_clipped_avg"].append(grad_norm_d_clipped.detach())
+            avg_losses["grad_g_clipped_avg"].append(grad_norm_g_clipped.detach())
+            avg_losses["disc_loss_avg"].append(loss_disc.detach())
+            avg_losses["fm_loss_avg"].append(loss_fm.detach())
+            avg_losses["kl_loss_avg"].append(loss_kl.detach())
+            avg_losses["mel_loss_avg"].append(loss_mel.detach())
+            avg_losses["gen_loss_avg"].append(loss_gen_all.detach())
 
-            if rank == 0 and global_step % 50 == 0:
+            if rank == 0 and global_step % 93 == 0:
                 # logging rolling averages
                 scalar_dict = {
-                    "grad_avg_50/norm_d": torch.mean(
-                        torch.stack(list(avg_losses["grad_d_50"]))
+                    "grad_avg/norm_d": torch.mean(
+                        torch.stack(list(avg_losses["grad_d_avg"]))
                     ),
-                    "grad_avg_50/norm_g": torch.mean(
-                        torch.stack(list(avg_losses["grad_g_50"]))
+                    "grad_avg/norm_g": torch.mean(
+                        torch.stack(list(avg_losses["grad_g_avg"]))
                     ),
-                    "loss_avg_50/d/total": torch.mean(
-                        torch.stack(list(avg_losses["disc_loss_50"]))
+                    "grad_avg/norm_d_clipped": torch.mean(
+                        torch.stack(list(avg_losses["grad_d_clipped_avg"]))
                     ),
-                    "loss_avg_50/g/fm": torch.mean(
-                        torch.stack(list(avg_losses["fm_loss_50"]))
+                    "grad_avg/norm_g_clipped": torch.mean(
+                        torch.stack(list(avg_losses["grad_g_clipped_avg"]))
                     ),
-                    "loss_avg_50/g/kl": torch.mean(
-                        torch.stack(list(avg_losses["kl_loss_50"]))
+                    "grad_avg/norm_d_trimmed": torch.trimean(
+                        torch.stack(list(avg_losses["grad_d_avg_trimmed"]))
                     ),
-                    "loss_avg_50/g/mel": torch.mean(
-                        torch.stack(list(avg_losses["mel_loss_50"]))
+                    "grad_avg/norm_g_trimmed": torch.trimean(
+                        torch.stack(list(avg_losses["grad_g_avg_trimmed"]))
                     ),
-                    "loss_avg_50/g/total": torch.mean(
-                        torch.stack(list(avg_losses["gen_loss_50"]))
+                    "loss_avg/d/total": torch.mean(
+                        torch.stack(list(avg_losses["disc_loss_avg"]))
+                    ),
+                    "loss_avg/g/fm": torch.mean(
+                        torch.stack(list(avg_losses["fm_loss_avg"]))
+                    ),
+                    "loss_avg/g/kl": torch.mean(
+                        torch.stack(list(avg_losses["kl_loss_avg"]))
+                    ),
+                    "loss_avg/g/mel": torch.mean(
+                        torch.stack(list(avg_losses["mel_loss_avg"]))
+                    ),
+                    "loss_avg/g/total": torch.mean(
+                        torch.stack(list(avg_losses["gen_loss_avg"]))
                     ),
                 }
                 summarize(
