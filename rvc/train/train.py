@@ -814,6 +814,8 @@ def train_and_evaluate(
             "learning_rate": lr,
             "grad/norm_d": grad_norm_d.item(),
             "grad/norm_g": grad_norm_g.item(),
+            "grad/norm_d_clipped": grad_norm_d_clipped.item(),
+            "grad/norm_g_clipped": grad_norm_g_clipped.item(),
             "loss/g/fm": loss_fm,
             "loss/g/mel": loss_mel,
             "loss/g/kl": loss_kl,
